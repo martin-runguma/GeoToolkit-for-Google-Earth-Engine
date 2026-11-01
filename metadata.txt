@@ -1,0 +1,40 @@
+[general]
+name=GeoToolkit for Google Earth Engine
+qgisMinimumVersion=3.28
+qgisMaximumVersion=4.99
+description=Select an area of interest and prepare satellite imagery, spectral index, population and building dataset exports from Google Earth Engine in QGIS.
+version=1.2.2
+author=Martin Runguma
+email=martin.runguma@gmail.com
+about=GeoToolkit for Google Earth Engine provides a guided QGIS workflow for selecting an area of interest, choosing geospatial datasets, configuring processing options, and managing exports.
+    Available products include Landsat RGB and false-colour imagery, Sentinel-2 RGB, Landsat and Sentinel-2 spectral indices, WorldPop population counts, Open Buildings height data, and building footprint vectors.
+    Features:
+    - Select an area of interest from a polygon layer and use the selected features or layer extent
+    - Browse dataset descriptions, coverage information, reference images, and attribution
+    - Configure imagery dates, cloud masking, index sources, years, bands, and vector tile IDs
+    - Save raster outputs locally or export them to Google Drive
+    - Submit supported vector exports as Google Earth Engine table tasks to Google Drive
+    - Monitor current exports, elapsed time, and download history in the plugin
+    - Add completed local downloads to the current QGIS project
+    Notes: an internet connection and an authenticated Google Earth Engine-enabled Cloud Project are required for Earth Engine exports. Install the required Python packages in the QGIS Python environment when prompted. Dataset coverage, export limits, availability, licensing and attribution depend on each data provider.
+changelog=1.2.2
+    - Fixed undefined progress row references in the vector fallback path
+    - Fixed duplicate Qgis import in the area measurement helper
+    - Fixed Icon reference
+    1.2.1
+    - Fixed QGIS enum compatibility across supported QGIS versions
+    - Improved vector export fallback and cleanup error reporting
+    1.2.0
+    - Added a five-step workflow for area selection, dataset selection, dataset options, output configuration and results
+    - Added local raster downloads and Google Drive exports, including asynchronous Earth Engine table export tasks for supported vectors
+    - Added dataset descriptions, reference previews, attribution, elapsed-time tracking and download history
+category=Raster, Vector
+tags=Google Earth Engine,remote sensing,Landsat,Sentinel-2,raster,vector,buildings,population,download
+homepage=https://github.com/martin-runguma/GeoToolkit-for-Google-Earth-Engine
+tracker=https://github.com/martin-runguma/GeoToolkit-for-Google-Earth-Engine/issues
+repository=https://github.com/martin-runguma/GeoToolkit-for-Google-Earth-Engine
+icon=icon.png
+experimental=False
+deprecated=False
+server=False
+hasProcessingProvider=no

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280">
+ <defs><linearGradient id="b" x2="1"><stop stop-color="#182f59"/><stop offset=".5" stop-color="#2788a3"/><stop offset="1" stop-color="#e8bb58"/><clipPath id="c"><rect width="640" height="280" rx="14"/></clipPath></defs>
+ <g clip-path="url(#c)"><rect width="640" height="280" fill="#eaf1ef"/>
+  <path d="M0 0h640v280H0z" fill="#d8e8e1"/><path d="M0 213 134 158l101 24 86-89 105 30 87-78 127 44v191H0z" fill="url(#b)" opacity=".92"/>
+  <g fill="#f7e6a2" opacity=".8"><circle cx="305" cy="130" r="65"/><circle cx="438" cy="146" r="51"/><circle cx="228" cy="190" r="42"/></g>
+  <g fill="#b54345"><circle cx="316" cy="129" r="32"/><circle cx="435" cy="148" r="25"/><circle cx="224" cy="192" r="19"/></g>
+  <path d="M0 225 640 93M0 78l640 150M126 0v280M515 0v280" stroke="#fff" stroke-width="2" opacity=".35"/>
+  <rect x="18" y="18" width="195" height="30" rx="15" fill="#142a3b" opacity=".78"/><text x="34" y="38" font-family="Segoe UI,Arial" font-size="14" font-weight="700" fill="#fff">POPULATION / HEIGHT</text>
+ </g><rect x="1" y="1" width="638" height="278" rx="13" fill="none" stroke="#fff" stroke-opacity=".72" stroke-width="2"/>
+</svg>

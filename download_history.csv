@@ -1,0 +1,39 @@
+﻿time_utc,dataset,output,path_or_details,status,time_taken,job_id
+2026-11-01T11:22:08+00:00,Sentinel 2 RGB,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N5\Sentinel_2_RGB.tif,Downloaded,00:06:57,68e4d8a207484f79b3b2db3dd3d71011
+2026-11-01T11:33:57+00:00,NDVI — Vegetation Index,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N6\NDVI_Vegetation_Index_Landsat.tif,Downloaded,00:01:47,73517d34fb45469f883d9ef6ee54aefb
+2026-11-01T11:33:57+00:00,Population (WorldPop Global2 — Count),GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N6\Population_WorldPop_Global2_Count.tif,Downloaded,00:00:06,d9a309776d804c5fb80189bff83bd501
+2026-11-01T11:33:57+00:00,OpenBuildingMap (by GFZ) — 300110,GeoPackage,Preparing Earth Engine request…,Downloading,00:00:00,20c745a0064e40b0b2b3c8667d2f490f
+2026-11-01T11:33:57+00:00,Global Building Atlas Polygons — e035_n00_e040_s05,KML (WGS 84),FNMMPZJVNNMFVHSJ24Q2KMFL,Queued in Google Drive,00:00:00,9da67110f39345f7ad3d2c25906ae468
+2026-11-01T11:40:51+00:00,Open Buildings Polygon V3,KML (WGS 84),Export completed in Google Drive,Completed,00:00:11,071d0d72324b4bc6ac464f62e6b98cc3
+2026-11-01T11:40:51+00:00,OpenBuildingMap (by GFZ) — 300110,GeoPackage,Export completed in Google Drive,Completed,00:00:23,115b0414fbeb41e29895c919b3bcd6c7
+2026-11-01T11:40:51+00:00,Global Building Atlas Polygons — e035_n00_e040_s05,KML (WGS 84),Export completed in Google Drive,Completed,00:00:22,8d3192e5482b4a978f931074c4132924
+2026-11-01T11:43:52+00:00,Landsat RGB,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N7\Landsat_RGB.tif,Downloaded,00:00:06,396ff9bbee40458aa7bae64849bc18be
+2026-11-01T11:43:52+00:00,Landsat False Color,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N7\Landsat_False_Color.tif,Downloaded,00:00:06,bc883ebc49644dccae4bb15b3224bfaa
+2026-11-01T11:43:52+00:00,Sentinel 2 RGB,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N7\Sentinel_2_RGB.tif,Downloaded,00:00:07,55e07ac2297f4cd699280b0585b8791a
+2026-11-01T11:43:52+00:00,NDVI — Vegetation Index,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N7\NDVI_Vegetation_Index_Landsat.tif,Downloaded,00:00:05,6bbc307d94ae493880ed106fc197324c
+2026-11-01T11:43:58+00:00,NDBI — Built-up Index,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N7\NDBI_Built-up_Index_Landsat.tif,Downloaded,00:00:03,1859bf32afbc426f822a398ac3ab74c2
+2026-11-01T11:43:58+00:00,DBSI — Dry Built-up Soil Index,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N7\DBSI_Dry_Built-up_Soil_Index_Landsat.tif,Downloaded,00:00:04,8856a4bcd3364e97ba948d11fd343731
+2026-11-01T11:43:58+00:00,UI — Urban Index,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N7\UI_Urban_Index_Landsat.tif,Downloaded,00:00:06,c062475fed8c4decac7bfd34d1dd72fc
+2026-11-01T11:43:59+00:00,NDWI — Water Index,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N7\NDWI_Water_Index_Landsat.tif,Downloaded,00:00:04,872613cdd3824a108d1c72ec6ce2a5b0
+2026-11-01T11:44:01+00:00,LST — Land Surface Temperature,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N7\LST_Land_Surface_Temperature.tif,Downloaded,00:00:04,c0086aa7c771407584ddd0fae9a75f06
+2026-11-01T11:44:02+00:00,Population (WorldPop Global2 — Count),GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N7\Population_WorldPop_Global2_Count.tif,Downloaded,00:00:03,80e0b267e6ac43f09018484a116018df
+2026-11-01T11:44:04+00:00,Building Height (Open Buildings 2.5D Temporal),GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\N7\Building_Height_Open_Buildings_2_5D_Temporal.tif,Downloaded,00:00:04,acc442df0eb746c4bbd58abc77e1d306
+2026-11-01T11:44:05+00:00,Open Buildings Polygon V3,KML (WGS 84),Export completed in Google Drive,Completed,00:00:24,9902629497054d79963e0f5fb01b1fcc
+2026-11-01T11:44:05+00:00,Microsoft Buildings,KML (WGS 84),"Collection.loadTable: Expected asset 'projects/sat-io/open-datasets/MSBuildings' to be a Collection, found 'IndexedFolder'.",Failed,00:00:00,4dda831c29b24538b8772ed40eb9d126
+2026-11-01T11:44:05+00:00,OpenBuildingMap (by GFZ) — 300110,GeoPackage,Export completed in Google Drive,Completed,00:00:14,d897ff28b6fa431b9276b74da0adca6c
+2026-11-01T11:44:06+00:00,Global Building Atlas Polygons — e035_n00_e040_s05,KML (WGS 84),Export completed in Google Drive,Completed,00:00:23,d43023d0f07248d4aacbf28937ea8dbb
+2026-11-01T11:56:45+00:00,Landsat RGB,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\Landsat_RGB.tif,Downloaded,00:00:04,8a050ca100314fad80c0387f601ef5e0
+2026-11-01T11:56:45+00:00,Landsat False Color,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\Landsat_False_Color.tif,Downloaded,00:00:04,089d72bc1eb1487cb6faf6bc05018e73
+2026-11-01T11:56:45+00:00,Sentinel 2 RGB,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\Sentinel_2_RGB.tif,Downloaded,00:00:06,81d3c110bc324dcda247e80669529603
+2026-11-01T11:56:45+00:00,NDVI — Vegetation Index,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\NDVI_Vegetation_Index_Landsat.tif,Downloaded,00:00:05,c58ca40a15c24c11acf8e10da4d918a9
+2026-11-01T11:56:49+00:00,NDBI — Built-up Index,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\NDBI_Built-up_Index_Landsat.tif,Downloaded,00:00:04,981a2fd6eff44ac2bded1c121bd65eae
+2026-11-01T11:56:50+00:00,DBSI — Dry Built-up Soil Index,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\DBSI_Dry_Built-up_Soil_Index_Landsat.tif,Downloaded,00:00:04,03658f2aeabe4965a846568cbf94e0e0
+2026-11-01T11:56:50+00:00,UI — Urban Index,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\UI_Urban_Index_Landsat.tif,Downloaded,00:00:04,92ae14cea74f4865807e929b8f91e10b
+2026-11-01T11:56:51+00:00,NDWI — Water Index,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\NDWI_Water_Index_Landsat.tif,Downloaded,00:00:03,7d119f8f01db4b1c9c1f29e1b055e68e
+2026-11-01T11:56:54+00:00,LST — Land Surface Temperature,GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\LST_Land_Surface_Temperature.tif,Downloaded,00:00:03,a35e4c42b9254efe93a1d711a3249519
+2026-11-01T11:56:54+00:00,Population (WorldPop Global2 — Count),GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\Population_WorldPop_Global2_Count.tif,Downloaded,00:00:21,f2124082eaec49de8a641b1f55f0b415
+2026-11-01T11:56:55+00:00,Building Height (Open Buildings 2.5D Temporal),GeoTIFF,D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output\Building_Height_Open_Buildings_2_5D_Temporal.tif,Downloaded,00:00:03,f885e2fbc13a4fada4ff04d35c308c5f
+2026-11-01T11:56:55+00:00,Open Buildings Polygon V3,KML (WGS 84),Export completed in Google Drive,Completed,00:00:21,18d32362c086482881436bd5d30d573f
+2026-11-01T11:56:55+00:00,OpenBuildingMap (by GFZ) — 300110,GeoPackage,Export completed in Google Drive,Completed,00:00:21,e58e4b268a3e4375a5028cc8796d191f
+2026-11-01T11:56:56+00:00,Global Building Atlas Polygons — e035_n00_e040_s05,KML (WGS 84),Export completed in Google Drive,Completed,00:00:30,9ff4ed243d8e4f9ab6d574c6ab60ea0a
+2026-11-01T12:24:17+00:00,Microsoft Buildings — Kenya,KML (WGS 84),Export completed in Google Drive,Completed,00:00:10,9d9a782837864e9e9e313338979d7454

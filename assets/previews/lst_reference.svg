@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280">
+ <defs><linearGradient id="h" x2="1"><stop stop-color="#163d78"/><stop offset=".32" stop-color="#2fa8c4"/><stop offset=".56" stop-color="#f2dc68"/><stop offset=".78" stop-color="#ec823c"/><stop offset="1" stop-color="#b82c38"/><clipPath id="c"><rect width="640" height="280" rx="14"/></clipPath></defs>
+ <g clip-path="url(#c)"><rect width="640" height="280" fill="#183f62"/><path d="M0 30 109 2l82 53 81-27 111 32 66-44 102 42 89-21v243H0z" fill="url(#h)"/>
+  <path d="m0 181 98-45 81 19 49-43 79 16 40 47-41 45-104-4-74 48-92-23z" fill="#d4eddd" opacity=".55"/>
+  <path d="m307 45 80 19 34 53-29 52-72-9-34-49zM467 137l74-24 51 36-19 61-83 2-35-38z" fill="#c8343e" opacity=".62"/>
+  <rect x="18" y="18" width="151" height="30" rx="15" fill="#122c40" opacity=".78"/><text x="34" y="38" font-family="Segoe UI,Arial" font-size="14" font-weight="700" fill="#fff">LAND SURFACE TEMP</text>
+ </g><rect x="1" y="1" width="638" height="278" rx="13" fill="none" stroke="#fff" stroke-opacity=".72" stroke-width="2"/>
+</svg>

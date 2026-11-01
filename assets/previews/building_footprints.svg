@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280">
+ <defs><clipPath id="c"><rect width="640" height="280" rx="14"/></clipPath></defs>
+ <g clip-path="url(#c)"><rect width="640" height="280" fill="#eaf2f5"/>
+  <path d="M0 54h640M0 140h640M0 226h640M105 0v280M265 0v280M430 0v280M555 0v280" stroke="#c3d5dc" stroke-width="4"/>
+  <g fill="#cfdfd4" stroke="#287aa0" stroke-width="4"><path d="m34 25 53-8 12 48-46 19z"/><path d="m134 31 83 9-8 55-75-3z"/><path d="m301 20 72 3 9 59-66 14z"/><path d="m467 40 62-22 34 37-16 49-71-6z"/><path d="m55 151 68-18 15 67-73 18z"/><path d="m181 147 61 4 7 62-70 12z"/><path d="m310 138 93 8-11 72-72-11z"/><path d="m480 150 91-8 23 61-81 27z"/><path d="m89 237 55-9 13 42H75z"/><path d="m278 228 77 4 6 40h-89z"/><path d="m447 231 64-12 31 44-89 10z"/></g>
+  <rect x="18" y="18" width="206" height="30" rx="15" fill="#142a3b" opacity=".78"/><text x="34" y="38" font-family="Segoe UI,Arial" font-size="14" font-weight="700" fill="#fff">BUILDING FOOTPRINTS</text>
+ </g><rect x="1" y="1" width="638" height="278" rx="13" fill="none" stroke="#fff" stroke-opacity=".72" stroke-width="2"/>
+</svg>

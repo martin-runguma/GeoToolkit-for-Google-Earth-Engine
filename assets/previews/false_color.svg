@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280">
+ <defs><linearGradient id="f" x2="0" y2="1"><stop stop-color="#152c49"/><stop offset="1" stop-color="#102c3c"/></linearGradient><clipPath id="c"><rect width="640" height="280" rx="14"/></clipPath></defs>
+ <g clip-path="url(#c)"><rect width="640" height="280" fill="url(#f)"/>
+  <path d="M-20 194 82 122l91 12 85-78 93 34 69-41 111 42 106-38v248H-20z" fill="#d64b55"/>
+  <path d="m0 42 124 28 48 40-37 44-84-13-74 29zm243 174 68-61 78 21 51 59-71 47-106-21zm253-91 65-40 92 21-17 43-88 10z" fill="#398eb6"/>
+  <path d="M411-10c-26 58-17 89 17 119s25 51-8 76-19 54 21 72 31 39 6 56h196V-10z" fill="#134a61"/>
+  <path d="M-10 222c75-52 128-22 191-49s94-57 151-34 78 48 138 25 111-65 180-40" fill="none" stroke="#f59c69" stroke-width="12" opacity=".86"/>
+  <rect x="18" y="18" width="177" height="30" rx="15" fill="#122c40" opacity=".78"/><text x="34" y="38" font-family="Segoe UI,Arial" font-size="14" font-weight="700" fill="#fff">COLOUR INFRARED</text>
+ </g><rect x="1" y="1" width="638" height="278" rx="13" fill="none" stroke="#fff" stroke-opacity=".72" stroke-width="2"/>
+</svg>

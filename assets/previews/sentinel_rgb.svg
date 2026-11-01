@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280">
+ <defs><linearGradient id="g" x2="0" y2="1"><stop stop-color="#4e805b"/><stop offset="1" stop-color="#183f48"/></linearGradient><clipPath id="c"><rect width="640" height="280" rx="14"/></clipPath></defs>
+ <g clip-path="url(#c)"><rect width="640" height="280" fill="url(#g)"/>
+  <path d="M0 0h640v62l-91 24-47 43-93-8-69 45-112-13-81 44-83-16L0 206z" fill="#78964c"/>
+  <path d="m-18 213 95-44 70 19 59-46 91 14 66-43 85 4 55-35 166 26v192H-18z" fill="#557646"/>
+  <path d="M-8 59 87 31l68 18-18 42-97 22zm179 12 75-38 91 12-12 47-99 21zm151 152 86-51 91 7 17 39-89 42z" fill="#aa9b5d"/>
+  <path d="M549-10c-53 45-58 76-35 107s16 46-12 71-28 50 8 74 36 39 8 54h142V-10z" fill="#428e9b"/>
+  <path d="M-10 232c87-41 117-18 175-31s93-65 156-53 69 50 132 35 110-57 198-46" fill="none" stroke="#77b8b8" stroke-width="11" opacity=".86"/>
+  <path d="m371 103 33-25 43 13-3 29-48 17zm-224 101 42-24 36 15-7 26-51 14z" fill="#a56753"/>
+  <rect x="18" y="18" width="160" height="30" rx="15" fill="#102a35" opacity=".72"/><text x="34" y="38" font-family="Segoe UI,Arial" font-size="14" font-weight="700" fill="#fff">SENTINEL-2 RGB</text>
+  <rect x="455" y="232" width="167" height="30" rx="15" fill="#102a35" opacity=".72"/><text x="471" y="252" font-family="Segoe UI,Arial" font-size="13" fill="#fff">MEDIAN COMPOSITE</text>
+ </g><rect x="1" y="1" width="638" height="278" rx="13" fill="none" stroke="#fff" stroke-opacity=".72" stroke-width="2"/>
+</svg>

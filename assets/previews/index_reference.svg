@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 280">
+ <defs><linearGradient id="r" x2="1"><stop stop-color="#253a8e"/><stop offset=".24" stop-color="#24a8be"/><stop offset=".5" stop-color="#72bd5a"/><stop offset=".74" stop-color="#f0c948"/><stop offset="1" stop-color="#bd3840"/><clipPath id="c"><rect width="640" height="280" rx="14"/></clipPath></defs>
+ <g clip-path="url(#c)"><rect width="640" height="280" fill="#edf4f5"/><path d="M0 188 90 141 171 166 239 103 326 124 404 75 484 101 560 44 650 73v220H0z" fill="url(#r)"/>
+  <path d="m0 222 94-33 74 20 59-57 78 15 50-47 82 18 79-42 131 27v157H0z" fill="#204c6d" opacity=".28"/>
+  <path d="M100 0v280M230 0v280M360 0v280M490 0v280M0 70h640M0 140h640M0 210h640" stroke="#fff" stroke-width="2" opacity=".5"/>
+  <rect x="18" y="18" width="177" height="30" rx="15" fill="#142a3b" opacity=".78"/><text x="34" y="38" font-family="Segoe UI,Arial" font-size="14" font-weight="700" fill="#fff">INDEX RASTER • SAMPLE</text>
+ </g><rect x="1" y="1" width="638" height="278" rx="13" fill="none" stroke="#fff" stroke-opacity=".72" stroke-width="2"/>
+</svg>
