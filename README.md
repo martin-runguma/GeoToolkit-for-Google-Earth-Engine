@@ -19,7 +19,7 @@ The toolkit aims to reduce the complexity of accessing and preparing geospatial 
 - Configurable satellite imagery and spectral index parameters.
 - Raster and vector dataset support.
 - Automatic loading of downloaded datasets into QGIS.
-- Dataset previews and descriptive information.
+- Dataset previews and descriptive information.\n- GUI language selector (English, Kiswahili, French and Spanish; untranslated specialist dataset/provider terms remain in English).
 - Provider-specific download handling.
 
 ## Supported Data Categories

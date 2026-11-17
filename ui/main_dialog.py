@@ -8,16 +8,19 @@ import time
 import uuid
 from datetime import datetime, timezone
 from qgis.PyQt.QtCore import QObject, Qt, QDate, QLocale, QSettings, QThread, QTimer, pyqtSignal
-from qgis.PyQt.QtGui import QColor, QFont, QIcon, QPixmap
+from qgis.PyQt.QtGui import QIcon, QPixmap
 from qgis.PyQt.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDateEdit,
     QDialog,
     QFileDialog,
     QFrame,
+    QGroupBox,
     QInputDialog,
     QGridLayout,
+    QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -27,6 +30,7 @@ from qgis.PyQt.QtWidgets import (
     QPushButton,
     QRadioButton,
     QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QStackedWidget,
     QTableWidget,
@@ -42,6 +46,7 @@ from qgis.core import (Qgis, QgsMessageLog, QgsCoordinateReferenceSystem, QgsCoo
                        QgsGeometry, QgsProject, QgsUnitTypes, QgsVectorLayer)
 from ..core.compat import POLYGON_GEOM
 from ..core.earth_engine_downloads import EarthEngineDownloadWorker
+from . import theme
 
 
 STEPS = (
@@ -233,12 +238,6 @@ CATALOG = [
     },
 ]
 
-BLUE = "#0789cf"
-INK = "#183a5a"
-MUTED = "#69839b"
-LINE = "#cfe1ef"
-PALE = "#f2f8fc"
-
 
 def _qt_member(group_name: str, member: str, legacy_name: str):
     """Resolve scoped Qt6 enums and their Qt5 aliases."""
@@ -256,10 +255,13 @@ _USER_ROLE = _qt_member("ItemDataRole", "UserRole", "UserRole")
 _ALIGN_CENTER = _qt_member("AlignmentFlag", "AlignCenter", "AlignCenter")
 _ALIGN_TOP = _qt_member("AlignmentFlag", "AlignTop", "AlignTop")
 _ALIGN_LEFT = _qt_member("AlignmentFlag", "AlignLeft", "AlignLeft")
+_ALIGN_VCENTER = _qt_member("AlignmentFlag", "AlignVCenter", "AlignVCenter")
+_HEADER_RESIZE_MODE = getattr(QHeaderView, "ResizeMode", QHeaderView)
+_HEADER_STRETCH = getattr(_HEADER_RESIZE_MODE, "Stretch")
+_HEADER_CONTENTS = getattr(_HEADER_RESIZE_MODE, "ResizeToContents")
 _ALIGN_RIGHT = _qt_member("AlignmentFlag", "AlignRight", "AlignRight")
 _KEEP_ASPECT = _qt_member("AspectRatioMode", "KeepAspectRatio", "KeepAspectRatio")
 _SMOOTH = _qt_member("TransformationMode", "SmoothTransformation", "SmoothTransformation")
-_FRAME_NO_FRAME = getattr(getattr(QFrame, "Shape", QFrame), "NoFrame")
 
 
 _ACTIVE_EE_THREADS = []
@@ -300,26 +302,26 @@ class EarthEngineConnectionWorker(QObject):
             self.completed.emit(True, "Earth Engine connection verified.")
 
 
-def _card(title: str, subtitle: str = "") -> tuple[QFrame, QVBoxLayout]:
-    frame = QFrame()
-    frame.setObjectName("card")
-    layout = QVBoxLayout(frame)
-    layout.setContentsMargins(10, 6, 10, 6)
-    layout.setSpacing(5)
-    heading = QLabel(title)
-    heading.setObjectName("cardHeading")
-    layout.addWidget(heading)
+def _card(title: str, subtitle: str = "") -> tuple[QGroupBox, QVBoxLayout]:
+    group = QGroupBox(title)
+    layout = QVBoxLayout(group)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(8)
     if subtitle:
-        description = QLabel(subtitle)
-        description.setObjectName("muted")
-        description.setWordWrap(True)
-        layout.addWidget(description)
-    return frame, layout
+        layout.addWidget(_hint(subtitle))
+    return group, layout
 
 
 def _field_label(text: str) -> QLabel:
     label = QLabel(text)
     label.setObjectName("fieldLabel")
+    return label
+
+
+def _hint(text: str) -> QLabel:
+    label = QLabel(text)
+    label.setObjectName("hint")
+    label.setWordWrap(True)
     return label
 
 
@@ -345,6 +347,7 @@ class MainDialog(QDialog):
         self._ee_worker = None
         self._ee_pending_project = ""
         self._ee_notify_on_result = False
+        self._ee_connected = False
         self._download_thread = None
         self._download_worker = None
         self._download_rows = {}
@@ -354,19 +357,28 @@ class MainDialog(QDialog):
         self._job_history_records = {}
         self._history_row_by_id = {}
         self._history_suppressed_ids = set()
+        self.setObjectName("GeoToolkitDialog")
         self.setWindowTitle("GeoToolkit for Google Earth Engine")
         self.icon_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icon.png")
         self.setWindowIcon(QIcon(self.icon_path))
-        # Keep the wizard close to the compact, wide layout in the reference.
-        self.setMinimumSize(700, 380)
-        self.resize(770, 400)
+        self.setMinimumSize(640, 360)
+
+        screen = QApplication.primaryScreen()
+        if screen is not None:
+            available = screen.availableGeometry()
+            width = min(1120, max(760, available.width() - 60))
+            height = min(820, max(480, available.height() - 80))
+            self.resize(min(width, available.width()), min(height, available.height()))
+        else:
+            self.resize(960, 600)
         self._build()
+        saved_language = QSettings().value("GeoToolkit/UI/language", "fr", type=str)
+        self._apply_language(saved_language)
         self.history_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "download_history.csv")
         self.elapsed_timer = QTimer(self)
         self.elapsed_timer.setInterval(5000)
         self.elapsed_timer.timeout.connect(self._refresh_elapsed_times)
         self._refresh_history_table()
-        self._style()
         project = QgsProject.instance()
         project.layersAdded.connect(self._refresh_layers)
         project.layersRemoved.connect(self._refresh_layers)
@@ -381,63 +393,38 @@ class MainDialog(QDialog):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Header mirrors the deep-blue title strip in the reference image.
-        header = QWidget()
-        header.setObjectName("titleBar")
-        header_row = QHBoxLayout(header)
-        header_row.setContentsMargins(20, 5, 20, 5)
-        header_row.setSpacing(10)
-        self.connection_badge = QLabel("●  Not connected")
-        self.connection_badge.setObjectName("connectionBadge")
-        self.connection_badge.setAlignment(_ALIGN_CENTER)
-        self.connection_badge.setMinimumWidth(150)
-        self.connection_badge.setFixedHeight(34)
-        self.connection_button = QPushButton("Authenticate and Initialize")
-        self.connection_button.setToolTip("Sign in to Google and initialize Earth Engine with a Cloud Project.")
-        self.connection_button.setObjectName("connectionButton")
-        self.connection_button.setMinimumWidth(210)
-        self.connection_button.setFixedHeight(34)
-        self.connection_button.clicked.connect(self._connect_earth_engine)
-        header_row.addWidget(self.connection_badge)
-        header_row.addStretch(1)
-        header_row.addWidget(self.connection_button)
-        root.addWidget(header)
+        root.addWidget(self._build_header())
 
         content = QHBoxLayout()
+        content.setContentsMargins(0, 0, 0, 0)
         content.setSpacing(0)
         root.addLayout(content, 1)
 
-        self.sidebar = QWidget()
-        self.sidebar.setObjectName("sidebar")
-        self.sidebar.setFixedWidth(200)
-        sidebar_layout = QVBoxLayout(self.sidebar)
-        sidebar_layout.setContentsMargins(7, 10, 7, 8)
-        sidebar_layout.setSpacing(3)
+        sidebar_inner = QFrame()
+        sidebar_inner.setObjectName("sidebar")
+        sidebar_layout = QVBoxLayout(sidebar_inner)
+        sidebar_layout.setContentsMargins(8, 14, 8, 10)
+        sidebar_layout.setSpacing(2)
         self.step_buttons = []
-        self.step_markers = []
         for index, name in enumerate(STEPS):
-            step_row = QWidget()
-            step_row.setObjectName("stepRow")
-            step_layout = QHBoxLayout(step_row)
-            step_layout.setContentsMargins(20, 10, 20, 10)
-            step_layout.setSpacing(10)
-            marker = QLabel(str(index + 1))
-            marker.setObjectName("stepMarker")
-            marker.setAlignment(_ALIGN_CENTER)
-            step_layout.addWidget(marker)
             button = QPushButton(name)
             button.setObjectName("stepButton")
             button.setCheckable(True)
+            button.setFocusPolicy(_qt_member("FocusPolicy", "NoFocus", "NoFocus"))
             button.clicked.connect(lambda checked=False, i=index: self._go_to(i))
-            step_layout.addWidget(button, 1)
-            sidebar_layout.addWidget(step_row)
+            sidebar_layout.addWidget(button)
             self.step_buttons.append(button)
-            self.step_markers.append(marker)
         sidebar_layout.addStretch(1)
+        self.sidebar = QScrollArea()
+        self.sidebar.setWidgetResizable(True)
+        self.sidebar.setFrameShape(getattr(getattr(QFrame, "Shape", QFrame), "NoFrame"))
+        self.sidebar.setHorizontalScrollBarPolicy(_qt_member("ScrollBarPolicy", "ScrollBarAlwaysOff", "ScrollBarAlwaysOff"))
+        self.sidebar.setMinimumWidth(150)
+        self.sidebar.setMaximumWidth(196)
+        self.sidebar.setWidget(sidebar_inner)
         content.addWidget(self.sidebar)
 
         self.stack = QStackedWidget()
-        self.stack.setObjectName("pages")
         self.stack.addWidget(self._build_aoi_page())
         self.stack.addWidget(self._build_datasets_page())
         self.stack.addWidget(self._build_options_page())
@@ -445,43 +432,187 @@ class MainDialog(QDialog):
         self.stack.addWidget(self._build_results_page())
         content.addWidget(self.stack, 1)
 
-        footer = QWidget()
+        footer = QFrame()
         footer.setObjectName("footer")
-        footer_row = QGridLayout(footer)
-        footer_row.setContentsMargins(20, 10, 20, 10)
-        footer_row.setHorizontalSpacing(20)
-        footer_row.setVerticalSpacing(5)
-        footer_row.setColumnStretch(0, 1)
-        footer_row.setColumnStretch(2, 1)
+        footer_row = QHBoxLayout(footer)
+        footer_row.setContentsMargins(24, 10, 24, 10)
+        footer_row.setSpacing(8)
+
         self.help_button = QPushButton("Help")
-        self.help_button.setObjectName("secondaryButton")
-        self.help_button.setFixedHeight(25)
+        self.help_button.setObjectName("ghostButton")
         self.help_button.clicked.connect(self._show_help)
-        footer_row.addWidget(self.help_button, 0, 0, _ALIGN_LEFT)
+        footer_row.addWidget(self.help_button)
+        footer_row.addStretch(1)
         self.step_caption = QLabel("Step 1 of 5")
-        self.step_caption.setObjectName("muted")
-        footer_row.addWidget(self.step_caption, 0, 1, _ALIGN_CENTER)
-        navigation = QWidget()
-        navigation_row = QHBoxLayout(navigation)
-        navigation_row.setContentsMargins(0, 0, 0, 0)
-        navigation_row.setSpacing(20)
-        self.back_button = QPushButton("←  Back")
-        self.back_button.setObjectName("secondaryButton")
+        self.step_caption.setObjectName("stepCaption")
+        footer_row.addWidget(self.step_caption)
+        self.back_button = QPushButton("Back")
         self.back_button.clicked.connect(lambda: self._go_to(self.current_step - 1))
-        navigation_row.addWidget(self.back_button)
-        self.next_button = QPushButton("Next  →")
+        footer_row.addWidget(self.back_button)
+        self.next_button = QPushButton("Next")
         self.next_button.setObjectName("primaryButton")
-        self.next_button.setFixedHeight(25)
         self.next_button.clicked.connect(lambda: self._go_to(self.current_step + 1))
-        navigation_row.addWidget(self.next_button)
-        footer_row.addWidget(navigation, 0, 2, _ALIGN_RIGHT)
+        footer_row.addWidget(self.next_button)
         root.addWidget(footer)
+
+        for button in self.findChildren(QPushButton):
+            button.setAutoDefault(False)
+        self.next_button.setDefault(True)
+
+        theme.apply_theme(self)
+
+    def _tr(self, text):
+        from .localization import translate
+        return translate(text, getattr(self, "_active_language", "en"))
+
+    def _translate_step_caption(self, current, total):
+        language = getattr(self, "_active_language", "en")
+        if language == "sw":
+            return f"Hatua ya {current} kati ya {total}"
+        if language == "fr":
+            return f"Étape {current} sur {total}"
+        if language == "es":
+            return f"Paso {current} de {total}"
+        return f"Step {current} of {total}"
+
+    def _language_changed(self, index):
+        language = self.language_combo.itemData(index)
+        if language:
+            QSettings().setValue("GeoToolkit/UI/language", language)
+            self._apply_language(language)
+
+    def _apply_language(self, language):
+        """Translate visible interface text while preserving functional option values."""
+        from .localization import translate
+        from .. import i18n
+        self._active_language = i18n.normalise(language or "en")
+        rtl = self._active_language in i18n.RTL_LANGUAGES
+        self.setLayoutDirection(
+            _qt_member("LayoutDirection", "RightToLeft", "RightToLeft") if rtl
+            else _qt_member("LayoutDirection", "LeftToRight", "LeftToRight")
+        )
+        self.setWindowTitle(translate("GeoToolkit for Google Earth Engine", self._active_language))
+        for widget in self.findChildren(QWidget):
+            if widget is self.language_combo:
+                continue
+            # Store source strings once so switching languages never translates a translation.
+            for getter, setter, key in (
+                ("text", "setText", "gt_original_text"),
+                ("placeholderText", "setPlaceholderText", "gt_original_placeholder"),
+                ("toolTip", "setToolTip", "gt_original_tooltip"),
+            ):
+                get_value = getattr(widget, getter, None)
+                set_value = getattr(widget, setter, None)
+                if callable(get_value) and callable(set_value):
+                    original = widget.property(key)
+                    if original is None:
+                        original = get_value()
+                        widget.setProperty(key, original)
+                    if original:
+                        set_value(translate(original, self._active_language))
+            if isinstance(widget, QGroupBox):
+                original = widget.property("gt_original_title")
+                if original is None:
+                    original = widget.title()
+                    widget.setProperty("gt_original_title", original)
+                widget.setTitle(translate(original, self._active_language))
+            if isinstance(widget, QTreeWidget):
+                def translate_tree_item(item):
+                    original = item.data(0, _USER_ROLE + 20)
+                    if original is None:
+                        original = item.text(0)
+                        item.setData(0, _USER_ROLE + 20, original)
+                    item.setText(0, translate(original, self._active_language))
+                    for child_index in range(item.childCount()):
+                        translate_tree_item(item.child(child_index))
+                for tree_index in range(widget.topLevelItemCount()):
+                    translate_tree_item(widget.topLevelItem(tree_index))
+            if isinstance(widget, QTableWidget):
+                originals = widget.property("gt_original_headers")
+                if originals is None:
+                    originals = [widget.horizontalHeaderItem(i).text() if widget.horizontalHeaderItem(i) else ""
+                                 for i in range(widget.columnCount())]
+                    widget.setProperty("gt_original_headers", originals)
+                for column, original in enumerate(originals):
+                    item = widget.horizontalHeaderItem(column)
+                    if item is not None:
+                        item.setText(translate(original, self._active_language))
+            if isinstance(widget, QTabWidget):
+                for tab_index in range(widget.count()):
+                    original = widget.tabBar().tabText(tab_index)
+                    stored = widget.tabBar().tabData(tab_index) if hasattr(widget.tabBar(), "tabData") else None
+                    # Tab captions are captured once in a parallel property on the page widget.
+                    page = widget.widget(tab_index)
+                    key = "gt_original_tab_text"
+                    if page.property(key) is None:
+                        page.setProperty(key, original)
+                    widget.setTabText(tab_index, translate(page.property(key), self._active_language))
+        # The selector's label is intentionally kept in the selected language.
+        self.update()
+
+    def _build_header(self):
+        """Compact identity header with Earth Engine state and authentication."""
+        header = QFrame()
+        header.setObjectName("appHeader")
+        row = QHBoxLayout(header)
+        row.setContentsMargins(24, 12, 24, 12)
+        row.setSpacing(12)
+
+        mark = QLabel()
+        mark.setPixmap(QIcon(self.icon_path).pixmap(28, 28))
+        row.addWidget(mark, 0, _ALIGN_TOP)
+
+        text_column = QVBoxLayout()
+        text_column.setSpacing(1)
+        title = QLabel("GeoToolkit for Google Earth Engine")
+        title.setObjectName("appTitle")
+        subtitle = QLabel("Select an area, choose Earth Engine datasets and export")
+        subtitle.setObjectName("appSubtitle")
+        text_column.addWidget(title)
+        text_column.addWidget(subtitle)
+        row.addLayout(text_column, 1)
+
+        self.connection_badge = QLabel("Earth Engine: Not connected")
+        self.connection_badge.setObjectName("connectionState")
+        self.connection_badge.setProperty("state", "disconnected")
+        row.addWidget(self.connection_badge, 0, _ALIGN_CENTER)
+
+        self.connection_button = QPushButton("Authenticate and Initialize")
+        self.connection_button.setObjectName("primaryButton")
+        self.connection_button.setToolTip(
+            "Sign in to Google and initialize Earth Engine with a Cloud Project."
+        )
+        self.connection_button.clicked.connect(self._connect_earth_engine)
+        row.addWidget(self.connection_button, 0, _ALIGN_CENTER)
+
+        language_label = QLabel("Language")
+        language_label.setObjectName("languageLabel")
+        row.addWidget(language_label, 0, _ALIGN_CENTER)
+        self.language_combo = QComboBox()
+        self.language_combo.setObjectName("languageSelector")
+        self.language_combo.setMinimumWidth(96)
+        from .. import i18n
+        for code, label in i18n.LANGUAGES:
+            self.language_combo.addItem(label, code)
+        self.language_combo.currentIndexChanged.connect(self._language_changed)
+        row.addWidget(self.language_combo, 0, _ALIGN_CENTER)
+        saved_language = QSettings().value("GeoToolkit/UI/language", "fr", type=str)
+        saved_index = self.language_combo.findData(saved_language)
+        self.language_combo.setCurrentIndex(max(0, saved_index))
+        return header
 
     def _build_aoi_page(self):
         page = QWidget()
-        row = QHBoxLayout(page)
-        row.setContentsMargins(9, 16, 9, 8)
-        row.setSpacing(8)
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(getattr(getattr(QFrame, "Shape", QFrame), "NoFrame"))
+        content = QWidget()
+        row = QHBoxLayout(content)
+        row.setContentsMargins(20, 16, 20, 16)
+        row.setSpacing(14)
 
         source, form = _card("Source")
         form.addWidget(_field_label("Layer type"))
@@ -491,13 +622,14 @@ class MainDialog(QDialog):
         form.addWidget(_field_label("Select layer"))
         self.layer_combo = _combo([])
         self.layer_combo.setMinimumWidth(0)
+        sp = self.layer_combo.sizePolicy()
+        policy = getattr(QSizePolicy, "Policy", QSizePolicy)
+        sp.setHorizontalPolicy(getattr(policy, "Expanding"))
+        self.layer_combo.setSizePolicy(sp)
         self.layer_combo.currentIndexChanged.connect(self._update_aoi_summary)
         layer_picker = QHBoxLayout()
-        layer_picker.setContentsMargins(20, 5, 20, 5)
-        layer_picker.setSpacing(20)
         layer_picker.addWidget(self.layer_combo, 1)
         self.browse_layer_button = QPushButton("Browse…")
-        self.browse_layer_button.setObjectName("secondaryButton")
         self.browse_layer_button.setToolTip("Import a polygon layer from a file into this QGIS project")
         self.browse_layer_button.clicked.connect(self._browse_aoi_layer)
         layer_picker.addWidget(self.browse_layer_button)
@@ -506,9 +638,7 @@ class MainDialog(QDialog):
         self.selected_only.setChecked(False)
         self.selected_only.toggled.connect(self._update_aoi_summary)
         form.addWidget(self.selected_only)
-        hint = QLabel("Only the selected features from the layer will be used for the download request.")
-        hint.setObjectName("muted")
-        hint.setWordWrap(True)
+        hint = _hint("Only the selected features from the layer will be used for the download request.")
         form.addWidget(hint)
 
         processing, processing_layout = _card("Processing")
@@ -541,23 +671,23 @@ class MainDialog(QDialog):
             line.addWidget(value)
             summary_layout.addLayout(line)
             self.summary_values[key] = value
-        info = QLabel("ℹ  The selected features define the area of interest for all selected datasets.")
-        info.setObjectName("infoBanner")
-        info.setWordWrap(True)
-        summary_layout.addSpacing(10)
+        info = _hint("The selected features define the area of interest for all selected datasets.")
         summary_layout.addWidget(info)
         summary_layout.addStretch(1)
-        summary.setFixedHeight(270)
         row.addWidget(summary, 5, _ALIGN_TOP)
+        scroll.setWidget(content)
+        outer.addWidget(scroll)
         return page
 
     def _build_datasets_page(self):
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(8, 8, 8, 8)
         search_row = QHBoxLayout()
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(12)
+        search_row.setSpacing(8)
         self.dataset_search = QLineEdit()
-        self.dataset_search.setPlaceholderText("⌕   Search datasets...")
+        self.dataset_search.setPlaceholderText("Search datasets...")
         self.dataset_search.textChanged.connect(self._filter_datasets)
         search_row.addWidget(self.dataset_search, 1)
         self.free_only = QCheckBox("Show only free datasets")
@@ -565,10 +695,13 @@ class MainDialog(QDialog):
         layout.addLayout(search_row)
 
         body = QHBoxLayout()
-        body.setSpacing(10)
+        body.setSpacing(12)
         self.dataset_tree = QTreeWidget()
         self.dataset_tree.setHeaderHidden(True)
-        self.dataset_tree.setMinimumWidth(220)
+        self.dataset_tree.setIndentation(16)
+        self.dataset_tree.setMinimumWidth(180)
+        policy = getattr(QSizePolicy, "Policy", QSizePolicy)
+        self.dataset_tree.setSizePolicy(getattr(policy, "Preferred"), getattr(policy, "Expanding"))
         groups = {}
         group_counts = {group: sum(1 for dataset in CATALOG if dataset["group"] == group)
                         for group in ("Imagery", "Indices", "Other Rasters", "Vector")}
@@ -578,6 +711,9 @@ class MainDialog(QDialog):
                 category = QTreeWidgetItem([f"{group}  ({group_counts[group]})"])
                 category.setFlags(category.flags() | _USER_CHECKABLE | _USER_TRISTATE)
                 category.setCheckState(0, _UNCHECKED)
+                category_font = category.font(0)
+                category_font.setBold(True)
+                category.setFont(0, category_font)
                 self.dataset_tree.addTopLevelItem(category)
                 groups[group] = category
             item = QTreeWidgetItem([dataset["title"]])
@@ -591,46 +727,46 @@ class MainDialog(QDialog):
         body.addWidget(self.dataset_tree, 1)
 
         detail = QFrame()
-        detail.setObjectName("card")
+        detail.setObjectName("detailPanel")
         detail_layout = QVBoxLayout(detail)
-        detail_layout.setContentsMargins(10, 8, 10, 8)
-        detail_layout.setSpacing(5)
+        detail_layout.setContentsMargins(12, 10, 12, 12)
+        detail_layout.setSpacing(6)
         detail_header = QHBoxLayout()
         detail_header.setSpacing(8)
         self.detail_preview = QLabel()
-        self.detail_preview.setObjectName("datasetPreview")
         self.detail_preview.setAlignment(_ALIGN_CENTER)
         self.detail_preview.setFixedSize(48, 44)
+        self.detail_preview.hide()
         detail_header.addWidget(self.detail_preview, 0, _ALIGN_TOP)
         title_block = QVBoxLayout()
         self.detail_title = QLabel("Choose a dataset")
         self.detail_title.setObjectName("detailTitle")
         self.detail_provider = QLabel("Provider details")
-        self.detail_provider.setObjectName("muted")
+        self.detail_provider.setObjectName("detailProvider")
         self.detail_provider.setWordWrap(True)
         title_block.addWidget(self.detail_title)
         title_block.addWidget(self.detail_provider)
         title_block.addStretch(1)
         detail_header.addLayout(title_block, 1)
         detail_layout.addLayout(detail_header)
-        detail_layout.addWidget(QFrame())
         self.detail_rows = {}
         for key in ("Description", "Temporal coverage", "Spatial resolution", "Bands", "License", "Credit / attribution", "Collection / source", "Composite / formula"):
             line = QHBoxLayout()
             left = QLabel(key)
             left.setObjectName("summaryKey")
-            left.setFixedWidth(100)
+            left.setMinimumWidth(96)
+            left.setMaximumWidth(130)
             right = QLabel("—")
-            right.setObjectName("summaryValue")
             right.setWordWrap(True)
             line.addWidget(left)
             line.addWidget(right, 1)
             detail_layout.addLayout(line)
             self.detail_rows[key] = right
-        coverage, cov_layout = _card("ⓘ  Coverage")
+        coverage_title = QLabel("Coverage")
+        coverage_title.setObjectName("subsectionTitle")
+        detail_layout.addWidget(coverage_title)
         coverage_row = QHBoxLayout()
         self.detail_coverage = QLabel("Global — check provider availability for your area.")
-        self.detail_coverage.setObjectName("muted")
         self.detail_coverage.setWordWrap(True)
         coverage_row.addWidget(self.detail_coverage, 1)
         coverage_map = QLabel()
@@ -639,19 +775,18 @@ class MainDialog(QDialog):
         if not coverage_pixmap.isNull():
             coverage_map.setPixmap(coverage_pixmap.scaled(92, 46, _KEEP_ASPECT, _SMOOTH))
         coverage_map.setAlignment(_ALIGN_CENTER)
-        coverage_map.setObjectName("coverageMap")
         coverage_row.addWidget(coverage_map, 0, _ALIGN_RIGHT)
-        cov_layout.addLayout(coverage_row)
-        detail_layout.addWidget(coverage)
+        detail_layout.addLayout(coverage_row)
         detail_layout.addStretch(1)
         detail_scroll = QScrollArea()
         detail_scroll.setWidgetResizable(True)
-        detail_scroll.setFrameShape(_FRAME_NO_FRAME)
         detail_scroll.setWidget(detail)
+        detail_scroll.setMinimumHeight(0)
+        self.dataset_tree.setMinimumHeight(0)
         body.addWidget(detail_scroll, 1)
         layout.addLayout(body, 1)
-        self.selection_tags = QLabel("Selected datasets:  none")
-        self.selection_tags.setObjectName("muted")
+        self.selection_tags = QLabel("Selected datasets: none")
+        self.selection_tags.setObjectName("hint")
         layout.addWidget(self.selection_tags)
         self.dataset_tree.currentItemChanged.connect(self._show_dataset_details)
         self.free_only.toggled.connect(self._filter_datasets)
@@ -660,19 +795,19 @@ class MainDialog(QDialog):
     def _build_options_page(self):
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(12)
         layout.setSpacing(6)
         self.options_summary = QLabel("Options will be based on the datasets selected in Step 2.")
-        self.options_summary.setObjectName("muted")
         self.options_summary.setWordWrap(True)
+        self.options_summary.setObjectName("hint")
         layout.addWidget(self.options_summary)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(_FRAME_NO_FRAME)
         self.options_content = QWidget()
         self.options_layout = QVBoxLayout(self.options_content)
         self.options_layout.setContentsMargins(0, 0, 0, 0)
-        self.options_layout.setSpacing(6)
+        self.options_layout.setSpacing(14)
         scroll.setWidget(self.options_content)
         layout.addWidget(scroll, 1)
         self.option_controls = {}
@@ -680,11 +815,14 @@ class MainDialog(QDialog):
 
     def _add_option_field(self, layout, label, widget):
         row = QHBoxLayout()
-        title = QLabel(label)
-        title.setObjectName("summaryKey")
-        title.setMinimumWidth(115)
+        title = _field_label(label)
+        title.setMinimumWidth(110)
         row.addWidget(title)
-        row.addWidget(widget, 1)
+        if isinstance(widget, (QComboBox, QSpinBox, QDateEdit)):
+            row.addWidget(widget)
+            row.addStretch(1)
+        else:
+            row.addWidget(widget, 1)
         layout.addLayout(row)
 
     def _refresh_dataset_options(self):
@@ -703,18 +841,21 @@ class MainDialog(QDialog):
             empty_layout.addWidget(QLabel("Selected datasets and their matching controls will appear here."))
             self.options_layout.addWidget(empty)
             self.options_layout.addStretch(1)
+            self._apply_language(getattr(self, "_active_language", "fr"))
             return
 
-        self.options_summary.setText(f"Options below match the {len(datasets)} dataset(s) selected in Step 2.")
+        if self._active_language == "fr":
+            self.options_summary.setText(f"Les options ci-dessous correspondent aux {len(datasets)} jeux de données sélectionnés à l’étape 2.")
+        else:
+            self.options_summary.setText(f"Options below match the {len(datasets)} dataset(s) selected in Step 2.")
         selected_card, selected_layout = _card(f"Selected datasets ({len(datasets)})")
         for data in datasets:
             title = QLabel(data["title"])
             title.setObjectName("detailTitle")
             selected_layout.addWidget(title)
-            selected_layout.addWidget(QLabel(f"{data['group']}  ·  {data['provider']}"))
+            selected_layout.addWidget(QLabel(f"{self._tr(data['group'])}  ·  {data['provider']}"))
             metadata = data.get("formula") or data.get("bands") or data.get("description", "")
-            detail = QLabel(metadata)
-            detail.setObjectName("muted")
+            detail = _hint(metadata)
             detail.setWordWrap(True)
             selected_layout.addWidget(detail)
         self.options_layout.addWidget(selected_card)
@@ -723,6 +864,7 @@ class MainDialog(QDialog):
         if optical:
             card, card_layout = _card("Optical imagery and index processing")
             dates = QHBoxLayout()
+            dates.setContentsMargins(0, 0, 0, 0)
             self.image_start = QDateEdit()
             self.image_start.setCalendarPopup(True)
             self.image_start.setDate(QDate(2020, 1, 1))
@@ -732,19 +874,22 @@ class MainDialog(QDialog):
             dates.addWidget(self.image_start)
             dates.addWidget(QLabel("to"))
             dates.addWidget(self.image_end)
+            dates.addStretch(1)
+            self.image_start.setMaximumWidth(160)
+            self.image_end.setMaximumWidth(160)
             date_holder = QWidget()
             date_holder.setLayout(dates)
             self._add_option_field(card_layout, "Date range", date_holder)
             self.cloud_cover = QSpinBox()
             self.cloud_cover.setRange(0, 100)
             self.cloud_cover.setValue(20)
+            self.cloud_cover.setMaximumWidth(80)
             self.cloud_cover.setSuffix(" %")
             self._add_option_field(card_layout, "Maximum cloud cover", self.cloud_cover)
             self.cloud_mask = QCheckBox("Mask clouds and cirrus using quality bands")
             self.cloud_mask.setChecked(True)
             card_layout.addWidget(self.cloud_mask)
-            composite = QLabel("Median composite for selected observations")
-            composite.setObjectName("muted")
+            composite = _hint("Median composite for selected observations")
             self._add_option_field(card_layout, "Composite", composite)
             self.option_controls["optical"] = {
                 "datasets": [data["title"] for data in optical],
@@ -762,8 +907,7 @@ class MainDialog(QDialog):
             sentinel_indices.setChecked(False)
             card_layout.addWidget(landsat_indices)
             card_layout.addWidget(sentinel_indices)
-            note = QLabel("Choose either or both sources for NDVI, NDBI, DBSI, UI, and NDWI. LST is Landsat-only and will not be generated from Sentinel-2.")
-            note.setObjectName("muted")
+            note = _hint("Choose either or both sources for NDVI, NDBI, DBSI, UI, and NDWI. LST is Landsat-only and will not be generated from Sentinel-2.")
             note.setWordWrap(True)
             card_layout.addWidget(note)
             self.option_controls["index_sources"] = {
@@ -778,8 +922,7 @@ class MainDialog(QDialog):
                 year = _combo([str(y) for y in range(2015, 2031)])
                 year.setCurrentText("2024")
                 self._add_option_field(card_layout, "Population year", year)
-                band = QLabel("Population count (people per cell)")
-                band.setObjectName("muted")
+                band = _hint("Population count (people per cell)")
                 self._add_option_field(card_layout, "Output band", band)
                 self.option_controls[data["title"]] = {"year": year}
                 self.options_layout.addWidget(card)
@@ -834,13 +977,11 @@ class MainDialog(QDialog):
                 lambda _index, country_combo=country, row=state_row:
                     row.setVisible(country_combo.currentData() == "United States")
             )
-            note = QLabel(
+            note = _hint(
                 "Choose a country for its Microsoft Buildings collection. For United States, "
                 "choose a state to use the matching ORNL USA Structures asset. The selected "
                 "collection is filtered to the area of interest and exported as a Google Drive task."
             )
-            note.setObjectName("muted")
-            note.setWordWrap(True)
             card_layout.addWidget(note)
             self.option_controls[data["title"]] = {"country": country, "state": state}
             self.options_layout.addWidget(card)
@@ -865,16 +1006,20 @@ class MainDialog(QDialog):
             card, card_layout = _card(data["title"] + " grid tiles")
             tile_ids = QPlainTextEdit()
             tile_ids.setPlaceholderText(example)
-            tile_ids.setFixedHeight(62)
+            tile_ids.setMinimumHeight(40)
+            tile_ids.setMaximumHeight(80)
+            policy = getattr(QSizePolicy, "Policy", QSizePolicy)
+            tile_ids.setSizePolicy(getattr(policy, "Expanding"), getattr(policy, "Preferred"))
             self._add_option_field(card_layout, "Tile IDs", tile_ids)
-            hint = QLabel(help_text)
-            hint.setObjectName("muted")
-            hint.setWordWrap(True)
+            hint = _hint(help_text)
             card_layout.addWidget(hint)
             self.option_controls[data["title"]] = {"tile_ids": tile_ids}
             self.options_layout.addWidget(card)
 
         self.options_layout.addStretch(1)
+        # Options are rebuilt dynamically when datasets or steps change; translate
+        # the newly-created controls immediately using their original source strings.
+        self._apply_language(getattr(self, "_active_language", "fr"))
 
     @staticmethod
     def _microsoft_country_names():
@@ -911,17 +1056,29 @@ class MainDialog(QDialog):
 
     def _build_output_page(self):
         page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(8, 8, 8, 8)
-        warning = QLabel("⚠  Large areas and high resolution may result in long download times and high data usage. Ensure a stable internet connection and enough disk space.")
-        warning.setObjectName("warningBanner")
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(getattr(getattr(QFrame, "Shape", QFrame), "NoFrame"))
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(12)
+        warning = QLabel("Large areas and high resolution may result in long download times and high data usage. Ensure a stable internet connection and enough disk space.")
         warning.setWordWrap(True)
+        warning.setObjectName("notice")
         layout.addWidget(warning)
+        layout.addSpacing(4)
 
         top = QHBoxLayout()
-        location, location_layout = _card("▰  Output Location")
+        location, location_layout = _card("Output Location")
         destination_row = QHBoxLayout()
-        destination_row.addWidget(_field_label("Save to"))
+        destination_label = _field_label("Save to")
+        destination_label.setMinimumWidth(120)
+        destination_label.setMaximumWidth(150)
+        destination_row.addWidget(destination_label)
         self.output_destination = _combo(["Local computer", "Google Drive"])
         self.output_destination.currentTextChanged.connect(self._output_destination_changed)
         destination_row.addWidget(self.output_destination, 1)
@@ -931,21 +1088,28 @@ class MainDialog(QDialog):
         local_layout = QVBoxLayout(local_destination)
         local_layout.setContentsMargins(0, 0, 0, 0)
         self.local_folder_row = QWidget()
-        local_folder_layout = QVBoxLayout(self.local_folder_row)
+        local_folder_layout = QHBoxLayout(self.local_folder_row)
         local_folder_layout.setContentsMargins(0, 0, 0, 0)
-        local_folder_layout.addWidget(_field_label("Local folder"))
+        local_folder_layout.setSpacing(8)
+        local_label = _field_label("Local folder")
+        local_label.setMinimumWidth(120)
+        local_label.setMaximumWidth(150)
+        local_folder_layout.addWidget(local_label)
         path_row = QHBoxLayout()
-        path_row.setContentsMargins(0, 2, 0, 2)
+        path_row.setContentsMargins(0, 0, 0, 0)
         path_row.setSpacing(6)
         self.output_path = QLineEdit(r"D:\14_Data_Analytics\QGIS_Plugin\Earth_Downloader\Output")
+        self.output_path.setCursorPosition(0)
         path_row.addWidget(self.output_path, 1)
-        browse = QPushButton("📁")
-        browse.setObjectName("secondaryButton")
+        browse = QPushButton("Browse…")
         browse.clicked.connect(self._browse_output)
         path_row.addWidget(browse)
-        local_folder_layout.addLayout(path_row)
+        local_folder_layout.addLayout(path_row, 1)
         worker_row = QHBoxLayout()
-        worker_row.addWidget(_field_label("Parallel download workers"))
+        worker_label = _field_label("Parallel workers")
+        worker_label.setMinimumWidth(120)
+        worker_label.setMaximumWidth(150)
+        worker_row.addWidget(worker_label)
         self.download_workers = QSpinBox()
         self.download_workers.setRange(1, 4)
         self.download_workers.setValue(2)
@@ -959,41 +1123,50 @@ class MainDialog(QDialog):
         drive_destination = QWidget()
         drive_layout = QVBoxLayout(drive_destination)
         drive_layout.setContentsMargins(0, 0, 0, 0)
-        drive_note = QLabel("Earth Engine exports are created in Google Drive; authenticate and initialize Earth Engine first.")
-        drive_note.setObjectName("muted")
-        drive_note.setWordWrap(True)
+        drive_note = _hint("Earth Engine exports are created in Google Drive; authenticate and initialize Earth Engine first.")
         drive_layout.addWidget(drive_note)
         self.output_destination_stack.addWidget(local_destination)
         self.output_destination_stack.addWidget(drive_destination)
-        location_layout.addWidget(self.output_destination_stack)
         location_layout.addWidget(self.local_folder_row)
+        location_layout.addWidget(self.output_destination_stack)
+
         self.drive_folder_row = QWidget()
         drive_folder_layout = QHBoxLayout(self.drive_folder_row)
         drive_folder_layout.setContentsMargins(0, 0, 0, 0)
-        drive_folder_layout.addWidget(_field_label("Google Drive folder"))
+        drive_folder_layout.setSpacing(8)
+        drive_label = _field_label("Google Drive folder")
+        drive_label.setMinimumWidth(120)
+        drive_label.setMaximumWidth(150)
+        drive_folder_layout.addWidget(drive_label)
         self.drive_folder = QLineEdit("GeoToolkit_Exports")
         self.drive_folder.setPlaceholderText("Folder name in your Google Drive")
         drive_folder_layout.addWidget(self.drive_folder, 1)
         location_layout.addWidget(self.drive_folder_row)
         self.vector_destination_note = QLabel()
-        self.vector_destination_note.setObjectName("muted")
         self.vector_destination_note.setWordWrap(True)
+        self.vector_destination_note.setObjectName("hint")
         location_layout.addWidget(self.vector_destination_note)
         form = QGridLayout()
-        form.setContentsMargins(4, 3, 4, 3)
-        form.setHorizontalSpacing(5)
-        form.setVerticalSpacing(3)
-        form.addWidget(_field_label("Organize by"), 0, 0)
-        form.addWidget(_combo(["Dataset", "Date", "Flat folder"]), 0, 1)
-        form.addWidget(_field_label("File naming"), 0, 2)
-        form.addWidget(_combo(["{dataset}_{date}.tif", "{dataset}_{aoi}_{date}.tif"]), 0, 3)
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setHorizontalSpacing(12)
+        form.setVerticalSpacing(8)
+        organize_label = _field_label("Organize by")
+        organize_label.setMinimumWidth(120)
+        organize_label.setMaximumWidth(150)
+        naming_label = _field_label("File naming")
+        naming_label.setMinimumWidth(120)
+        naming_label.setMaximumWidth(150)
+        form.addWidget(organize_label, 0, 0)
+        form.addWidget(_combo(["Dataset", "Date", "Flat folder"]), 0, 1, 1, 3)
+        form.addWidget(naming_label, 1, 0)
+        form.addWidget(_combo(["{dataset}_{date}.tif", "{dataset}_{aoi}_{date}.tif"]), 1, 1, 1, 3)
         self.subfolders = QCheckBox("Create subfolders for each dataset")
         self.subfolders.setChecked(True)
-        form.addWidget(self.subfolders, 1, 0, 1, 4)
+        form.addWidget(self.subfolders, 2, 0, 1, 4)
         location_layout.addLayout(form)
         top.addWidget(location, 3)
 
-        output_format, format_layout = _card("⚙  Format and projection")
+        output_format, format_layout = _card("Format and projection")
         self.output_controls = {}
         for label, options in (
             ("Output format", ["GeoTIFF (recommended)", "Cloud Optimized GeoTIFF"]),
@@ -1005,72 +1178,91 @@ class MainDialog(QDialog):
             line.addWidget(QLabel(label))
             line.addStretch(1)
             control = _combo(options)
+            control.setMinimumWidth(140)
+            control.setMaximumWidth(240)
             self.output_controls[label] = control
             line.addWidget(control)
             format_layout.addLayout(line)
-        crs_note = QLabel("Raster exports use the selected CRS. KML vectors use WGS 84, as required by the KML format.")
-        crs_note.setObjectName("muted")
-        crs_note.setWordWrap(True)
+        crs_note = _hint("Raster exports use the selected CRS. KML vectors use WGS 84, as required by the KML format.")
         format_layout.addWidget(crs_note)
         top.addWidget(output_format, 2)
         layout.addLayout(top)
 
-        overview, overview_layout = _card("▦  Request Overview")
+        overview, overview_layout = _card("Request Overview")
         self.request_table = QTableWidget(0, 4)
         self.request_table.setHorizontalHeaderLabels(["Dataset", "Resolution", "Estimated pixels", "Estimated size"])
+        self._align_table_headers(self.request_table)
         self.request_table.horizontalHeader().setStretchLastSection(True)
+        request_header = self.request_table.horizontalHeader()
+        request_header.setSectionResizeMode(0, _HEADER_STRETCH)
+        request_header.setSectionResizeMode(1, _HEADER_CONTENTS)
+        request_header.setSectionResizeMode(2, _HEADER_CONTENTS)
+        request_header.setSectionResizeMode(3, _HEADER_CONTENTS)
         self.request_table.setAlternatingRowColors(True)
-        self.request_table.setMinimumHeight(185)
+        self.request_table.verticalHeader().setVisible(False)
+        self.request_table.setMinimumHeight(80)
+        policy = getattr(QSizePolicy, "Policy", QSizePolicy)
+        self.request_table.setSizePolicy(getattr(policy, "Expanding"), getattr(policy, "Expanding"))
         overview_layout.addWidget(self.request_table)
         progress_row = QHBoxLayout()
         self.estimate_bar = QProgressBar()
         self.estimate_bar.setRange(0, 100)
         self.estimate_bar.setValue(0)
-        self.estimate_bar.setTextVisible(False)
         progress_row.addWidget(self.estimate_bar, 1)
         self.total_size_label = QLabel("Estimated size: pending AOI and datasets")
-        self.total_size_label.setObjectName("muted")
+        self.total_size_label.setObjectName("hint")
         progress_row.addWidget(self.total_size_label)
         overview_layout.addLayout(progress_row)
         layout.addWidget(overview, 1)
 
         run_row = QHBoxLayout()
-        run_row.setContentsMargins(20, 10, 20, 10)
         run_row.setSpacing(20)
         run_row.addStretch(1)
-        self.start_download = QPushButton("▶  Start Download")
+        self.start_download = QPushButton("Start Download")
         self.start_download.setObjectName("primaryButton")
         self.start_download.clicked.connect(self._start_download)
         run_row.addWidget(self.start_download)
         layout.addLayout(run_row)
+        layout.addStretch(1)
+        scroll.setWidget(content)
+        outer.addWidget(scroll)
         return page
 
     def _build_results_page(self):
         page = QWidget()
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(12)
         tabs = QTabWidget()
         current_tab = QWidget()
         current_layout = QVBoxLayout(current_tab)
         current_layout.setContentsMargins(0, 0, 0, 0)
-        banner = QLabel("●  Download jobs will appear here with their output paths and status.")
-        banner.setObjectName("successBanner")
+        banner = _hint("Download jobs will appear here with their output paths and status.")
         current_layout.addWidget(banner)
         self.results_table = QTableWidget(0, 5)
         self.results_table.setHorizontalHeaderLabels(["Dataset", "Output", "File Path", "Status", "Time Taken"])
+        self._align_table_headers(self.results_table)
         self.results_table.horizontalHeader().setStretchLastSection(True)
         self.results_table.setAlternatingRowColors(True)
-        self.results_table.setMinimumHeight(220)
+        self.results_table.verticalHeader().setVisible(False)
+        self.results_table.setMinimumHeight(80)
+        policy = getattr(QSizePolicy, "Policy", QSizePolicy)
+        self.results_table.setSizePolicy(getattr(policy, "Expanding"), getattr(policy, "Expanding"))
         current_layout.addWidget(self.results_table, 1)
         history_tab = QWidget()
         history_layout = QVBoxLayout(history_tab)
         self.history_table = QTableWidget(0, 6)
         self.history_table.setHorizontalHeaderLabels(["Time (UTC)", "Dataset", "Output", "File Path / Details", "Status", "Time Taken"])
+        self._align_table_headers(self.history_table)
         self.history_table.horizontalHeader().setStretchLastSection(True)
         self.history_table.setAlternatingRowColors(True)
+        self.history_table.verticalHeader().setVisible(False)
+        self.history_table.setMinimumHeight(80)
+        policy = getattr(QSizePolicy, "Policy", QSizePolicy)
+        self.history_table.setSizePolicy(getattr(policy, "Expanding"), getattr(policy, "Expanding"))
         history_layout.addWidget(self.history_table, 1)
         clear_history = QPushButton("Clear history")
-        clear_history.setObjectName("secondaryButton")
+        clear_history.setObjectName("ghostButton")
         clear_history.clicked.connect(self._clear_history)
         history_layout.addWidget(clear_history)
         tabs.addTab(current_tab, "Current results")
@@ -1078,20 +1270,18 @@ class MainDialog(QDialog):
         self.results_tabs = tabs
         layout.addWidget(tabs, 1)
         actions = QHBoxLayout()
-        actions.setContentsMargins(20, 10, 20, 10)
         actions.setSpacing(20)
         actions.addStretch(1)
-        self.add_to_project = QPushButton("＋  Add to project")
-        self.add_to_project.setObjectName("successButton")
+        self.add_to_project = QPushButton("Add to project")
+        self.add_to_project.setObjectName("primaryButton")
         self.add_to_project.setEnabled(False)
         self.add_to_project.clicked.connect(self._add_downloads_to_project)
         actions.addWidget(self.add_to_project)
-        open_folder = QPushButton("▱  Open output folder")
-        open_folder.setObjectName("secondaryButton")
+        open_folder = QPushButton("Open output folder")
         open_folder.clicked.connect(self._open_output_folder)
         actions.addWidget(open_folder)
-        new_session = QPushButton("⟳  New session")
-        new_session.setObjectName("secondaryButton")
+        new_session = QPushButton("New session")
+        new_session.setObjectName("ghostButton")
         new_session.setToolTip(
             "Start a fresh download setup: clear current results and dataset checks, "
             "return to Area of Interest, and keep saved download history and authentication."
@@ -1101,48 +1291,14 @@ class MainDialog(QDialog):
         layout.addLayout(actions)
         return page
 
-    def _style(self):
-        self.setStyleSheet(f"""
-            QDialog {{ background: #f5f9fc; color: {INK}; font: 6.5pt 'Segoe UI'; }}
-            QWidget#titleBar {{ background: #08649a; min-height: 44px; max-height: 44px; }}
-            QLabel#brandMark {{ color: white; font-size: 10pt; font-weight: 700; }}
-            QLabel#brandTitle {{ color: white; font-size: 8pt; font-weight: 700; }}
-            QLabel#connectionBadge {{ color: white; background: #087fa8; border: 1px solid #3cb4cf; border-radius: 8px; padding: 0 12px; font-size: 8pt; font-weight: 700; }}
-            QLabel#connectionBadge[connectionState="connected"] {{ background: #187644; border-color: #54c98a; }}
-            QPushButton#connectionButton {{ min-height: 0px; max-height: 34px; padding: 0 12px; border-radius: 8px; color: white; background: #087fa8; border: 1px solid #3cb4cf; font-size: 8pt; font-weight: 700; }}
-            QPushButton#connectionButton:hover {{ background: #0b94bc; }}
-            QWidget#sidebar {{ background: #edf5fa; border-right: 1px solid {LINE}; }}
-            QWidget#pages {{ background: #f7fafc; }}
-            QWidget#footer {{ background: #eaf3f9; border-top: 1px solid {LINE}; }}
-            QFrame#card {{ background: #ffffff; border: 1px solid {LINE}; border-radius: 6px; }}
-            QLabel#cardHeading {{ color: {INK}; font-size: 9pt; font-weight: 700; }}
-            QLabel#detailTitle {{ color: #153d60; font-size: 10pt; font-weight: 700; }}
-            QLabel#datasetPreview {{ background: #f2f7fa; border: 1px solid {LINE}; border-radius: 5px; padding: 2px; }}
-            QLabel#fieldLabel {{ color: #176da4; font-size: 7pt; font-weight: 600; }}
-            QLabel#summaryKey {{ color: #325575; }}
-            QLabel#summaryValue {{ color: #173a5b; font-weight: 600; }}
-            QLabel#muted {{ color: {MUTED}; font-size: 7pt; }}
-            QLabel#infoBanner {{ color: #0b65a2; background: #edf8ff; border: 1px solid #b9dff6; border-radius: 4px; padding: 5px; }}
-            QLabel#warningBanner {{ color: #614600; background: #fff8e0; border: 1px solid #f3d36d; border-radius: 4px; padding: 4px; }}
-            QLabel#successBanner {{ color: #167440; background: #ebf9f0; border: 1px solid #b9e8c8; border-radius: 4px; padding: 7px; }}
-            QPushButton {{ min-height: 17px; padding: 1px 5px; border: 1px solid {LINE}; border-radius: 3px; background: white; color: {INK}; }}
-            QPushButton:hover {{ border-color: {BLUE}; background: #f0f8fd; }}
-            QPushButton#stepButton {{ text-align: left; border: 0; background: transparent; color: #536f89; padding: 4px 1px; }}
-            QPushButton#stepButton:checked {{ background: transparent; color: #056eaa; font-weight: 700; }}
-            QLabel#stepMarker {{ min-width: 18px; max-width: 18px; min-height: 18px; max-height: 18px; margin: 0; padding: 0; border: 0; background: transparent; color: #69839b; font-size: 7pt; font-weight: 700; }}
-            QPushButton#primaryButton {{ background: {BLUE}; color: white; border: 1px solid {BLUE}; font-weight: 700; padding: 3px 11px; }}
-            QPushButton#primaryButton:hover {{ background: #0677b4; }}
-            QPushButton#secondaryButton {{ background: white; color: #126da5; }}
-            QPushButton#successButton {{ background: #2ea955; color: white; border-color: #2ea955; font-weight: 700; }}
-            QLineEdit, QComboBox, QDateEdit, QSpinBox {{ min-height: 17px; border: 1px solid #cbddea; border-radius: 3px; padding: 1px 3px; background: white; selection-background-color: {BLUE}; }}
-            QTreeWidget, QTableWidget {{ background: white; border: 1px solid {LINE}; border-radius: 5px; alternate-background-color: #f3f8fc; gridline-color: #dfebf3; }}
-            QTreeWidget::item {{ padding: 2px 1px; }}
-            QTreeWidget::item:selected {{ background: #dff1fb; color: #124b74; }}
-            QHeaderView::section {{ background: #edf5fa; color: #245474; border: 0; border-bottom: 1px solid {LINE}; padding: 3px; font-weight: 700; }}
-            QProgressBar {{ border: 0; border-radius: 4px; background: #e4eef5; min-height: 9px; max-height: 9px; }}
-            QProgressBar::chunk {{ background: #44b26b; border-radius: 4px; }}
-            QCheckBox, QRadioButton {{ spacing: 6px; color: #294c6d; }}
-        """)
+    @staticmethod
+    def _align_table_headers(table):
+        """Left-align table captions; the style sheet only sets their appearance."""
+        table.horizontalHeader().setDefaultAlignment(_ALIGN_LEFT | _ALIGN_VCENTER)
+        for column in range(table.columnCount()):
+            item = table.horizontalHeaderItem(column)
+            if item is not None:
+                item.setTextAlignment(_ALIGN_LEFT | _ALIGN_VCENTER)
 
     def _refresh_layers(self, *_):
         previous_id = self.layer_combo.currentData()
@@ -1217,7 +1373,7 @@ class MainDialog(QDialog):
         if self.layer_type.currentIndex() == 1:
             canvas = self.iface.mapCanvas() if self.iface else None
             extent = canvas.extent() if canvas else None
-            self.summary_values["Source"].setText("Current map extent")
+            self.summary_values["Source"].setText(self._tr("Current map extent"))
             self.summary_values["Features"].setText("—")
             crs = canvas.mapSettings().destinationCrs() if canvas else None
             try:
@@ -1230,14 +1386,14 @@ class MainDialog(QDialog):
             return
         layer = self._selected_layer()
         if not layer:
-            self.summary_values["Source"].setText("Polygon layer")
-            self.summary_values["Features"].setText("Select a polygon layer")
+            self.summary_values["Source"].setText(self._tr("Polygon layer"))
+            self.summary_values["Features"].setText(self._tr("Select a polygon layer"))
             self.summary_values["Area"].setText("—")
             self.summary_values["CRS"].setText("—")
             return
         use_selection = self.selected_only.isChecked()
         selected = layer.selectedFeatureCount() if use_selection else layer.featureCount()
-        count_text = f"{selected:,} selected features" if use_selection else f"{selected:,} features"
+        count_text = (f"{selected:,} entités sélectionnées" if use_selection else f"{selected:,} entités") if self._active_language == "fr" else (f"{selected:,} selected features" if use_selection else f"{selected:,} features")
         try:
             if use_selection and selected == 0:
                 area_text = "—"
@@ -1278,9 +1434,9 @@ class MainDialog(QDialog):
     def _update_selected_tags(self):
         names = [item["title"] for item in self._selected_datasets()]
         if names:
-            self.selection_tags.setText("Selected datasets:   " + "   ·   ".join(names))
+            self.selection_tags.setText(self._tr("Selected datasets:   ") + "   ·   ".join(names))
         else:
-            self.selection_tags.setText("Selected datasets:  none")
+            self.selection_tags.setText(self._tr("Selected datasets:  none"))
 
     def _show_dataset_details(self, item, _previous=None):
         if item is None:
@@ -1301,8 +1457,8 @@ class MainDialog(QDialog):
             "Composite / formula": data.get("formula", "—"),
         }
         for key, value in values.items():
-            self.detail_rows[key].setText(value)
-        self.detail_coverage.setText(data.get("coverage", "Global — check provider availability for your area."))
+            self.detail_rows[key].setText(self._tr(value))
+        self.detail_coverage.setText(self._tr(data.get("coverage", "Global — check provider availability for your area.")))
 
         preview_name = data.get("preview")
         if preview_name:
@@ -1350,7 +1506,7 @@ class MainDialog(QDialog):
             self.request_table.setItem(row, 1, QTableWidgetItem(resolution))
             self.request_table.setItem(row, 2, QTableWidgetItem(pixels))
             self.request_table.setItem(row, 3, QTableWidgetItem(size))
-        self.total_size_label.setText("Estimated size: requires an AOI and Earth Engine metadata")
+        self.total_size_label.setText(self._tr("Estimated size: requires an AOI and Earth Engine metadata"))
 
     def _browse_output(self):
         folder = QFileDialog.getExistingDirectory(self, "Choose output folder", self.output_path.text())
@@ -1418,7 +1574,9 @@ class MainDialog(QDialog):
             return
         self._ee_pending_project = project_id
         self._ee_notify_on_result = notify_on_result
-        self.connection_badge.setText("◌  Connecting…")
+        self.connection_badge.setText(self._tr("Earth Engine: Connecting…"))
+        self.connection_badge.setProperty("state", "connecting")
+        theme.repolish(self.connection_badge)
         self.connection_button.setEnabled(False)
         thread = QThread()
         worker = EarthEngineConnectionWorker(project_id, authenticate)
@@ -1439,18 +1597,17 @@ class MainDialog(QDialog):
         self.connection_button.setEnabled(True)
         self._ee_thread = None
         self._ee_worker = None
+        self._ee_connected = connected
         if connected:
             QSettings().setValue("GeoToolkit/GEE/cloudProjectId", self._ee_pending_project)
-            self.connection_badge.setText("●  Connected")
-            self.connection_badge.setProperty("connectionState", "connected")
-            self.connection_badge.style().unpolish(self.connection_badge)
-            self.connection_badge.style().polish(self.connection_badge)
+            self.connection_badge.setText(self._tr("Earth Engine: Connected"))
+            self.connection_badge.setProperty("state", "connected")
+            theme.repolish(self.connection_badge)
             self.connection_badge.setToolTip(f"Earth Engine initialized with project {self._ee_pending_project}")
         else:
-            self.connection_badge.setText("●  Not connected")
-            self.connection_badge.setProperty("connectionState", "disconnected")
-            self.connection_badge.style().unpolish(self.connection_badge)
-            self.connection_badge.style().polish(self.connection_badge)
+            self.connection_badge.setText(self._tr("Earth Engine: Not connected"))
+            self.connection_badge.setProperty("state", "disconnected")
+            theme.repolish(self.connection_badge)
             self.connection_badge.setToolTip("")
             if self._ee_notify_on_result:
                 QMessageBox.warning(self, "Earth Engine connection failed", message)
@@ -1490,7 +1647,7 @@ class MainDialog(QDialog):
         selected = self._selected_datasets()
         if not selected:
             raise ValueError("Select at least one dataset before starting the download.")
-        if self.connection_badge.property("connectionState") != "connected":
+        if not self._ee_connected:
             raise ValueError("Earth Engine is not connected. Use Authenticate and Initialize, then try again.")
         dates = self.option_controls.get("optical", {})
         start = dates.get("start").date().toString("yyyy-MM-dd") if dates else "2020-01-01"
@@ -1838,7 +1995,7 @@ class MainDialog(QDialog):
         self._download_thread = None
         self._download_worker = None
         self.start_download.setEnabled(True)
-        self.start_download.setText("▶  Start Download")
+        self.start_download.setText("Start Download")
         self.add_to_project.setEnabled(any(
             self.results_table.item(row, 3) and self.results_table.item(row, 3).text() == "Downloaded"
             and self.results_table.item(row, 2) and self.results_table.item(row, 2).text().lower().endswith((".tif", ".tiff"))
@@ -1879,7 +2036,7 @@ class MainDialog(QDialog):
             "configure output, and review results.\n\n"
             "For a polygon layer, choose a loaded polygon layer or browse to import one. "
             "Enable ‘Use selected features only’ when you want to use only the layer’s selected features. "
-            "Use Authenticate and Initialize in the header to sign in with Google and initialize a registered Cloud Project. "
+            "Use Authenticate and Initialize at the top of the window to sign in with Google and initialize a registered Cloud Project. "
             "Rasters can be saved locally or to Google Drive. Supported vector datasets are submitted as Earth Engine table tasks to Google Drive. Use View history to revisit previous runs; New session clears the current results and dataset checks while keeping history and authentication.",
         )
 
@@ -1893,7 +2050,7 @@ class MainDialog(QDialog):
         self.results_table.setRowCount(0)
         self.add_to_project.setEnabled(False)
         self.start_download.setEnabled(True)
-        self.start_download.setText("▶  Start Download")
+        self.start_download.setText("Start Download")
         self._go_to(0)
 
     def _go_to(self, index):
@@ -1909,21 +2066,10 @@ class MainDialog(QDialog):
     def _update_step_ui(self):
         for index, button in enumerate(self.step_buttons):
             button.setChecked(index == self.current_step)
-            marker = self.step_markers[index]
-            marker.setText("✓" if index < self.current_step else str(index + 1))
-            marker.setAlignment(_ALIGN_CENTER)
-            marker.setContentsMargins(0, 0, 0, 0)
-            marker.setMargin(0)
-            if index == self.current_step:
-                marker.setStyleSheet("border: 0; background: transparent; color: #0789cf; font-weight: 700;")
-            elif index < self.current_step:
-                marker.setStyleSheet("border: 0; background: transparent; color: #3986ad; font-weight: 700;")
-            else:
-                marker.setStyleSheet("border: 0; background: transparent; color: #69839b; font-weight: 700;")
-        self.step_caption.setText(f"Step {self.current_step + 1} of {len(STEPS)}")
+        self.step_caption.setText(self._translate_step_caption(self.current_step + 1, len(STEPS)))
         self.back_button.setVisible(self.current_step > 0)
         self.next_button.setVisible(self.current_step < len(STEPS) - 1)
-        self.next_button.setText("Next  →")
+        self.next_button.setText(self._tr("Next"))
         if self.current_step == 3:
             self.next_button.setVisible(False)
         if self.current_step == 4:
